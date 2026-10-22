@@ -2301,18 +2301,18 @@ function botThink(f,o,dt){const a=f.ai;a.t-=dt;const pos=f.p.root.position,op=o.
   if(o.carriedBy||o.fly){a.mx=a.mz=0;return;}
   if(o.ko||f.pick||f.thr){a.mx=a.mz=0;return;}
   const dOpp=Math.hypot(op.x-pos.x,op.z-pos.z);
-  if(f.sp>=100&&dOpp<7&&Math.random()<dt*1.5)f.ult=true;if(o.swing>0&&dOpp<2.3&&f.dodgeCd<=0&&Math.random()<dt*5)f.dodge=true;if(f.held&&PDEF[f.held.type].drink&&f.hp<80)f.atk=true;
+  if(f.sp>=100&&dOpp<7&&Math.random()<dt*1.5*(f.skill??1))f.ult=true;if(o.swing>0&&dOpp<2.3&&f.dodgeCd<=0&&Math.random()<dt*5*(f.skill??1)*(f.skill??1))f.dodge=true;if(f.held&&PDEF[f.held.type].drink&&f.hp<80)f.atk=true;
   if(f.held&&PDEF[f.held.type].gun&&f.held.ammo>0&&dOpp<14){const want=Math.atan2(op.x-pos.x,op.z-pos.z);turnTo(f.p.root,want,dt*8);
-    let dr=want-f.p.root.rotation.y;dr=Math.atan2(Math.sin(dr),Math.cos(dr));if(a.t<=0&&Math.abs(dr)<.18){f.atk=true;a.t=PDEF[f.held.type].rate+.35+Math.random()*.4;}
+    let dr=want-f.p.root.rotation.y;dr=Math.atan2(Math.sin(dr),Math.cos(dr));if(a.t<=0&&Math.abs(dr)<.18){f.atk=true;a.t=PDEF[f.held.type].rate+.35+Math.random()*.4+(1-(f.skill??1))*.7;}
     a.mx=a.mz=0;if(dOpp>9){a.mx=(op.x-pos.x)/dOpp;a.mz=(op.z-pos.z)/dOpp;}return;}
   if(!f.held){let best=null,bd=1e9;for(const pr of PROPS){if(!pr.alive||pr.held||pr.vel||pr.static||pr.type==="person"||(a.ban&&a.ban.get(pr)>F.t))continue;const pd=PDEF[pr.type];
       const d=Math.hypot(pr.g.position.x-pos.x,pr.g.position.z-pos.z)+Math.hypot(pr.g.position.x-op.x,pr.g.position.z-op.z)*.3+(pd.slow<.6?6:0)-(pd.gun?5:0)-(pd.dmg>=25?2:0);if(d<bd){bd=d;best=pr;}}
     if(best&&dOpp>1.6){if(best!==a.pt){a.pt=best;a.ptT=0;}else if((a.ptT+=dt)>4){(a.ban||(a.ban=new Map())).set(best,F.t+12);a.pt=null;}}
     if(best&&dOpp>1.6){tx=best.g.position.x;tz=best.g.position.z;if(Math.hypot(tx-pos.x,tz-pos.z)<1.25&&a.t<=0){f.grab=true;a.t=.4;}}
-    else{tx=op.x;tz=op.z;if(dOpp<1.8)turnTo(f.p.root,Math.atan2(op.x-pos.x,op.z-pos.z),dt*10);if(dOpp<1.1&&a.t<=0){if(Math.random()<.25)f.grab=true;else f.atk=true;a.t=.45+Math.random()*.35;}}}
+    else{tx=op.x;tz=op.z;if(dOpp<1.8)turnTo(f.p.root,Math.atan2(op.x-pos.x,op.z-pos.z),dt*10);if(dOpp<1.1&&a.t<=0){if(Math.random()<.25)f.grab=true;else f.atk=true;a.t=.45+Math.random()*.35+(1-(f.skill??1))*.6;}}}
   else{tx=op.x;tz=op.z;if(dOpp<PDEF[f.held.type].reach+.6)turnTo(f.p.root,Math.atan2(op.x-pos.x,op.z-pos.z),dt*10);
-    if(dOpp<Math.max(1,PDEF[f.held.type].reach*.9)&&a.t<=0){f.atk=true;a.t=.4+Math.random()*.45;}
-    else if(dOpp>3&&dOpp<8&&Math.random()<dt*.45){turnTo(f.p.root,Math.atan2(op.x-pos.x,op.z-pos.z),1);f.grab=true;}}
+    if(dOpp<Math.max(1,PDEF[f.held.type].reach*.9)&&a.t<=0){f.atk=true;a.t=.4+Math.random()*.45+(1-(f.skill??1))*.6;}
+    else if(dOpp>3&&dOpp<8&&Math.random()<dt*.45*(f.skill??1)){turnTo(f.p.root,Math.atan2(op.x-pos.x,op.z-pos.z),1);f.grab=true;}}
   botSteer(f,tx,tz,.7,dt);}
 function wanderAI(pr,dt,speed,flee){const q=pr.g.position;if(q.y>.05)return;const w=pr.wander;w.t-=dt;let fl=null;
   if(flee)for(const f of F?F.fs:[]){const fp=f.p.root.position,d=Math.hypot(fp.x-q.x,fp.z-q.z);if(d<1.6)fl={x:q.x-fp.x,z:q.z-fp.z};}
@@ -2529,7 +2529,7 @@ function personProp(p,s){p.home={...s};p.ring.visible=false;p.vx=p.vz=0;p.jump=n
   const pr={type:"person",g:p.root,person:p,home:{x:s.x,y:0,z:s.z,ry:s.ry,rz:0},held:null,vel:null,alive:true,dur:Infinity,spin:0,owner:null,wander:{t:0},last:{x:s.x,z:s.z},static:false};p.pr=pr;PROPS.push(pr);resetProp(pr);return pr;}
 function fightStart(opts){recReset();if(opts.mode!=="online"){$("rematchBtn").onclick=startVersus;$("fmenuBtn").onclick=showVersus;}GAME=opts;clearAll();setMap(opts.map||"office");hideAllPeople();
   F={water:null,mode:opts.mode,need:opts.need||3,floor:opts.floor||0,wins:[0,0],round:1,fs:[fighter(opts.p0,0,false),fighter(opts.p1,1,!!opts.bot)],phase:"intro",t:0,earned:0,rewards:[]};
-  for(const f of F.fs){f.p.root.visible=true;}const b=F.fs[1];if(b.bot){const fl=opts.mode==="ladder"?(opts.diff!=null?opts.diff:opts.floor):3;b.diff=Math.min(1.5,.6+fl*.075);b.maxHp=Math.round(100*Math.min(2.4,.85+fl*.045));b.dmgScale=Math.min(1.85,.72+fl*.05);}
+  for(const f of F.fs){f.p.root.visible=true;}const b=F.fs[1];if(b.bot){const fl=opts.mode==="ladder"?(opts.diff!=null?opts.diff:opts.floor):3;b.diff=Math.min(1.5,.6+fl*.075);b.maxHp=Math.round(100*Math.min(2.4,.85+fl*.045));b.dmgScale=Math.min(1.85,.72+fl*.05);}if(typeof botTune==="function")botTune(b,opts);
   const others=shuffled(CAST.filter(c=>c.id!==opts.p0&&c.id!==opts.p1)).sort((x,y)=>(x.tier==="legend")-(y.tier==="legend"));
   F.crowd=(opts.crowd?opts.crowd.map(id=>byId(id)).slice(0,MAP.crowd.length):others.slice(0,MAP.crowd.length)).map((c,i)=>{const p=people[c.id];personProp(p,MAP.crowd[i]);return p;});
   const w=people.water,r=MAP.route;F.water=w;personProp(w,{x:r[0].x,z:r[0].z,ry:Math.atan2(r[1].x-r[0].x,r[1].z-r[0].z)});F.crowd.push(w);
@@ -2753,7 +2753,7 @@ function showIntro(){state="intro";F=null;setMap("office");setWorld("office");hi
   clearInterval(INTRO.h);INTRO.h=setInterval(()=>{const el=$("itag");INTRO.ti=(INTRO.ti+1)%INTRO.tags.length;el.classList.remove("in");void el.offsetWidth;el.textContent=INTRO.tags[INTRO.ti];el.classList.add("in");},1700);
   const go=e=>{if(e&&e.type==="keydown"&&(e.ctrlKey||e.metaKey||e.altKey))return;removeEventListener("keydown",go);enterGame();};addEventListener("keydown",go);$("introGo").onclick=go;$("intro").onpointerdown=e=>{if(e.target===$("introGo"))return;go();};}
 function enterGame(){if(state!=="intro")return;clearInterval(INTRO.h);ac();try{actx.resume();}catch(e){}SFX.ult();$("intro").classList.add("out");state="menu";
-  setTimeout(()=>{$("intro").hidden=true;$("intro").classList.remove("out");showHome();},420);}
+  setTimeout(()=>{$("intro").hidden=true;$("intro").classList.remove("out");if(!save.trained&&!save.tut&&typeof startTraining==="function")startTraining();else showHome();},420);}
 function introFrame(raw){INTRO.t+=raw;const t=INTRO.t;
   INTRO.ids.forEach((id,i)=>{const p=people[id];if(!p)return;const ph=(t*.9+i*.37)%3;
     animatePerson(p,raw,false,ph<1?{cheer:true}:ph<2?{guard:true}:{punch:(ph-2)%1,snap:true});look(p,0,16,raw);});
@@ -4630,7 +4630,8 @@ function renderControls(){const el=$("ctBody");if(!el)return;const tab=CT.tab||(
       <div class="ctopt"><span>Дуга броска</span><button class="tg" id="ctArc" aria-pressed="${save.aim!==false}">${save.aim!==false?"показывать":"скрыта"}</button></div>
       <div class="ctopt"><span>Тряска камеры</span><button class="tg" id="ctShake" aria-pressed="${!save.noShake}">${save.noShake?"выключена":"включена"}</button></div>
       <div class="ctopt"><span>Музыка</span><button class="tg" id="ctMusic" aria-pressed="${save.music!==false}">${save.music!==false?"включена":"выключена"}</button></div>
-      ${gfxRow()}`;}
+      ${gfxRow()}
+      ${botRow()}`;}
   else{h+=`<div class="ctopt"><span>Размер кнопок</span><div class="seg" id="ctSize">${[[.85,"Мелкие"],[1,"Обычные"],[1.2,"Крупные"],[1.4,"Огромные"]].map(([v,n])=>`<button data-v="${v}" aria-pressed="${(T.size||1)===v}">${n}</button>`).join("")}</div></div>
       <div class="ctopt"><span>Прозрачность</span><div class="seg" id="ctOp">${[[.45,"Сильная"],[.7,"Средняя"],[1,"Нет"]].map(([v,n])=>`<button data-v="${v}" aria-pressed="${(T.op||1)===v}">${n}</button>`).join("")}</div></div>
       <div class="ctopt"><span>Джойстик</span><div class="seg" id="ctSide"><button data-v="0" aria-pressed="${!T.lefty}">слева</button><button data-v="1" aria-pressed="${!!T.lefty}">справа (для левшей)</button></div></div>
@@ -4760,6 +4761,7 @@ function bindHelp(){
     <div class="phead"><button class="back" id="helpBack" aria-label="Назад">←</button><h2>Как играть</h2></div>
     <div class="htips" id="helpTips"></div>
     <div class="hsec"><b>Звук</b><button class="btn alt" id="helpSound">🔊 Звук включён</button></div>
+    <div class="hsec"><b>Обучение</b><p>Короткая тренировка с манекеном: подбор, бросок, стрельба, удары, рывок и ульта.</p><button class="btn alt" id="helpTrain">🎓 Пройти обучение</button></div>
     <div class="hsec"><b>Поддержка</b><p>Нашёл ошибку или есть идея? Напиши нам — отвечаем и чиним.</p><div id="helpSupport"></div></div>
     <div class="hsec"><b>Твои данные</b><p>Прогресс хранится в твоём аккаунте ВКонтакте, чтобы не потеряться на другом устройстве. Игра ничего не публикует сама: запись на стене, приглашение друзей и «Поделиться» открываются в окне ВКонтакте, и там всегда можно отказаться.</p><div class="hdocs" id="helpDocs"></div></div>
     <div class="hsec"><b>Возраст 12+</b><p>Мультяшные офисные драки без крови и жестокости.</p></div>
@@ -4778,5 +4780,102 @@ const TJ={x:0,z:0,on:false};
 buildWorlds();resize();requestAnimationFrame(frame);
 Promise.all([ygInit(),loadFaces()]).then(()=>{ensureCustomPeople();makePortraits();for(const c of[...CAST,WATERMAN]){const sp=specFor(c);people[c.id]=skinPost(makePerson(sp),sp);}hideAllPeople();
   buildShip();buildWarehouse();buildRooftop();buildMetro();buildSite();buildGym();buildGraveyard();eventInit();setMap("office");bakeInit();prewarm();{const ie=document.querySelector(".ieyebrow");if(ie){const n=CAST.filter(c=>c.tier!=="custom").length,m=MAP_LIST.length;ie.textContent=`${n} бойцов · свой боец · ${m} ${plural(m,"карта","карты","карт")} · зомби · добивания`;}}MUSIC.on=save.music!==false;bindUI();bindEditor();sanitizeAnthems();sanitizeDances();$("loading").hidden=true;showIntro();ygReady();});
+</script>
+<script>
+// ---------- bot difficulty + a hands-on training with a dummy in the gym ----------
+// Bots: three levels (easy / normal / hard); the first four fights on "normal" are played on "easy".
+function botRow(){const v=save.botLvl||"normal";
+  return `<div class="ctopt"><span>Сложность ботов</span><div class="seg" id="ctBot">${[["easy","Лёгкая"],["normal","Обычная"],["hard","Сложная"]].map(([k,n])=>`<button data-v="${k}" aria-pressed="${v===k}">${n}</button>`).join("")}</div></div>`;}
+function botTune(b,opts){if(!b||!b.bot||opts.mode==="online")return;
+  if(TR.starting){b.skill=0;return;}
+  save.botFights=(save.botFights||0)+1;let lv=save.botLvl||"normal";if(lv==="normal"&&save.botFights<=4)lv="easy";
+  const K={easy:{s:.4,d:.72,dm:.6,hp:.8},normal:{s:.72,d:.88,dm:.82,hp:.92},hard:{s:1,d:1.05,dm:1.1,hp:1.1}}[lv]||{s:.72,d:.88,dm:.82,hp:.92};
+  b.skill=K.s;b.diff*=K.d;b.dmgScale*=K.dm;b.maxHp=Math.round(b.maxHp*K.hp);}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#ctBot button");if(!b)return;save.botLvl=b.dataset.v;persist();renderControls();
+  toast({easy:"Боты: лёгкие",normal:"Боты: обычные",hard:"Боты: сложные"}[save.botLvl]);});
+
+// Training: pick up → throw → find the gun → shoot → punch → dodge → ult
+const TR={on:false,starting:false,step:-1,P:null,D:null,props:[],arrow:null,thrown:0,gunHits:0,punches:0,ulted:false,ok:0,doneT:0,raf:0};
+function trKey(a){return TOUCH?`«${{atk:"Удар",grab:"Взять",dodge:"Рывок",ult:"Ульта"}[a]}»`:ctAct([CT.kb.p1],a);}
+const trHeldGun=()=>TR.P.held&&PDEF[TR.P.held.type].gun;
+const TR_STEPS=[
+  {t:()=>`🖥 Подойди к монитору под стрелкой и подними его: ${trKey("grab")}`,go:()=>TR.mon,ok:()=>TR.P.held&&TR.P.held.type!=="person"&&!trHeldGun()},
+  {t:()=>TR.P.held?`🎯 Повернись к манекену и брось: ещё раз ${trKey("grab")}`:`🖥 Подними предмет (${trKey("grab")}) и брось его в манекен`,
+    go:()=>TR.P.held?TR.D:TR.mon,prep:()=>{TR.thrown=0;},ok:()=>TR.thrown>0},
+  {t:()=>`🔫 Найди автомат под стрелкой и подбери его: ${trKey("grab")}`,go:()=>TR.gun,ok:()=>trHeldGun()},
+  {t:()=>trHeldGun()?`💥 Повернись к манекену и стреляй: ${trKey("atk")} <b>${Math.min(TR.gunHits,3)}/3</b>`:`🔫 Подбери автомат снова: ${trKey("grab")}`,
+    go:()=>trHeldGun()?TR.D:TR.gun,prep:()=>{TR.gunHits=0;},tick:()=>{const h=TR.P.held;if(h&&PDEF[h.type].gun)h.ammo=Math.max(h.ammo,20);},ok:()=>TR.gunHits>=3},
+  {t:()=>`👊 Теперь врукопашную! Подойди и ударь манекен: ${trKey("atk")} <b>${Math.min(TR.punches,3)}/3</b>`,go:()=>TR.D,
+    prep:()=>{TR.punches=0;},enter:()=>{TR.punches=0;if(trHeldGun()){dropHeld(TR.P);toast("Автомат отложен");}},ok:()=>TR.punches>=3},
+  {t:()=>`💨 Уйди рывком в сторону: ${trKey("dodge")}`,go:()=>null,ok:()=>TR.P.dodgeT>0},
+  {t:()=>`⚡ Шкала ульты заполнена — жми ${trKey("ult")}`,go:()=>null,enter:()=>{TR.ulted=false;TR.P.sp=100;},tick:()=>{if(!TR.ulted)TR.P.sp=100;},ok:()=>TR.ulted},
+];
+function trDummyId(){const ids=["p2","p3","p4","p6"].filter(id=>id!==save.sel&&typeof byId==="function"&&byId(id));return ids[0]||"p2";}
+function startTraining(){trCleanup();save.tut=1;TR.starting=true;
+  try{fightStart({mode:"versus",p0:save.sel,p1:trDummyId(),bot:true,map:"gym",need:99});}finally{TR.starting=false;}
+  F.training=true;$("rematchBtn").onclick=startTraining;$("fmenuBtn").onclick=showHome;
+  const P=F.fs[0],D=F.fs[1],pp=P.p.root.position;TR.P=P;TR.D=D;
+  D.maxHp=D.hp=99999;D.p.root.position.set(pp.x+5,0,pp.z);TR.home={x:pp.x+5,z:pp.z};TR.last=performance.now();
+  const add=(type,x,z)=>{const pr=addProp(type,x,0,z,Math.random()*6);pr.temp=true;pr.noClean=true;TR.props.push(pr);return pr;};
+  TR.mon=add("monitor",pp.x+1.4,pp.z+1.6);TR.gun=add("mg",pp.x-2.6,pp.z-3.4);
+  if(!TR.arrow){TR.arrow=new THREE.Mesh(new THREE.ConeGeometry(.36,.8,20),new THREE.MeshBasicMaterial({color:"#ffd84a"}));TR.arrow.rotation.x=Math.PI;
+    TR.ring=new THREE.Mesh(new THREE.RingGeometry(.52,.7,40),new THREE.MeshBasicMaterial({color:"#ffd84a",transparent:true,opacity:.85,side:THREE.DoubleSide,depthWrite:false}));TR.ring.rotation.x=-Math.PI/2;}
+  scene.add(TR.arrow);scene.add(TR.ring);TR.arrow.visible=TR.ring.visible=false;
+  trUI();$("trBox").hidden=false;$("trDone").hidden=true;
+  TR.on=true;TR.step=-1;TR.ok=0;TR.doneT=0;cancelAnimationFrame(TR.raf);TR.raf=requestAnimationFrame(trLoop);}
+function trSet(i){TR.step=i;const s=TR_STEPS[i];if(!s)return;if(s.enter)s.enter();trText();}
+function trText(){const s=TR_STEPS[TR.step];if(!s)return;
+  $("trStep").textContent=`Обучение · шаг ${TR.step+1} из ${TR_STEPS.length}`;$("trText").innerHTML=s.t();
+  $("trDots").innerHTML=TR_STEPS.map((_,i)=>`<i class="${i<TR.step?"d":i===TR.step?"c":""}"></i>`).join("");}
+function trLoop(ts){if(!TR.on)return;TR.raf=requestAnimationFrame(trLoop);
+  if(!F||!F.training||F.fs[0]!==TR.P||state==="menu"){trCleanup();return;}
+  const fn=$("f1name");if(fn&&fn.textContent!=="Манекен")fn.textContent="Манекен";
+  {const now=performance.now(),dt=Math.min(.1,(now-TR.last)/1000);TR.last=now;const D=TR.D,q=D.p.root.position;
+   if(!D.carriedBy&&!D.fly&&q.y<.05&&TR.home){const k=Math.min(1,dt*2.5);q.x+=(TR.home.x-q.x)*k;q.z+=(TR.home.z-q.z)*k;}
+   const P=TR.P.p.root.position;D.p.root.rotation.y=Math.atan2(P.x-q.x,P.z-q.z);}
+  const A=TR.arrow,s=TR_STEPS[TR.step];let tg=s&&s.go?s.go():null;
+  if(tg&&tg.g&&(tg.held||!tg.alive))tg=null;
+  if(tg&&TR.ok<=0){const q=tg.g?tg.g.position:tg.p.root.position,h=tg.g?1.35:3.1;A.visible=true;A.position.set(q.x,h+.25+Math.sin(ts/180)*.18,q.z);A.rotation.y=ts/400;const R=TR.ring,k=1+Math.sin(ts/160)*.12;R.visible=true;R.position.set(q.x,.03,q.z);R.scale.set(k,k,k);}else{A.visible=false;TR.ring.visible=false;}
+  if(state!=="fight"||F.phase!=="fight")return;
+  if(TR.step<0){trSet(0);return;}
+  if(TR.step>=TR_STEPS.length){if(TR.doneT&&performance.now()>TR.doneT){TR.doneT=0;trFinish();}return;}
+  if(TR.ok>0){if(performance.now()>TR.ok){TR.ok=0;$("trBox").classList.remove("ok");trSet(TR.step+1);if(TR.step>=TR_STEPS.length)TR.doneT=performance.now()+2600;}return;}
+  if(s.tick)s.tick();trText();
+  if(s.ok()){TR.ok=performance.now()+700;const nx=TR_STEPS[TR.step+1];if(nx&&nx.prep)nx.prep();$("trBox").classList.add("ok");$("trText").innerHTML="✓ Отлично!";SFX.coin();
+    const q=TR.P.p.root.position;popText("✓",q.x,3,q.z,"#7ee03a");}}
+function trFinish(){if(!TR.on)return;save.trained=1;save.tut=1;const first=!save.trainedReward;if(first){save.trainedReward=1;reward(300,"Обучение пройдено");}persist();
+  $("trBox").hidden=true;TR.arrow.visible=false;TR.ring.visible=false;$("trDoneCoins").textContent=first?"+300 монет за обучение":"Можешь пройти его снова в «Как играть»";
+  $("trDone").hidden=false;state="paused";}
+function trSkip(){save.trained=1;save.tut=1;persist();trCleanup();showHome();}
+function trCleanup(){TR.on=false;cancelAnimationFrame(TR.raf);if(TR.arrow){TR.arrow.visible=false;if(TR.arrow.parent)TR.arrow.parent.remove(TR.arrow);}if(TR.ring&&TR.ring.parent)TR.ring.parent.remove(TR.ring);
+  for(const pr of TR.props){if(pr.held&&pr.held.held===pr)pr.held.held=null;scene.remove(pr.g);const i=PROPS.indexOf(pr);if(i>=0)PROPS.splice(i,1);}TR.props.length=0;
+  const b=$("trBox");if(b)b.hidden=true;const d=$("trDone");if(d)d.hidden=true;if(F&&F.training)F.training=false;}
+function trUI(){if($("trBox"))return;
+  document.head.insertAdjacentHTML("beforeend",`<style>
+  #trBox{position:absolute;left:50%;top:calc(92px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:31;width:min(560px,94vw);background:rgba(14,15,20,.9);color:var(--paper);border-radius:18px;padding:12px 16px 12px;box-shadow:0 10px 30px rgba(0,0,0,.45),inset 0 0 0 2px rgba(255,216,74,.6);text-align:center;pointer-events:auto;transition:box-shadow .2s,background .2s;}
+  #trBox.ok{background:rgba(24,60,30,.92);box-shadow:0 10px 30px rgba(0,0,0,.45),inset 0 0 0 2px rgba(126,224,58,.9);}
+  #trStep{font:600 12px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--gold,#ffd84a);}
+  #trText{font:500 17px/1.35 var(--body);margin-top:6px;} #trText b{color:#ffd84a;} #trText kbd{font-size:14px;}
+  #trDots{display:flex;gap:6px;justify-content:center;margin-top:9px;} #trDots i{width:22px;height:5px;border-radius:3px;background:rgba(251,250,246,.2);} #trDots i.d{background:#7ee03a;} #trDots i.c{background:#ffd84a;}
+  #trSkip{position:absolute;right:8px;top:6px;appearance:none;border:0;background:none;color:var(--paper);opacity:.6;font:500 12px var(--body);padding:4px 6px;cursor:pointer;}
+  #trDone{position:absolute;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;background:rgba(10,11,14,.55);}
+  #trDone[hidden]{display:none;}
+  #trDone .panel{max-width:min(440px,92vw);text-align:center;gap:12px;}
+  #trDone h2{font:400 30px var(--display);margin:0;} #trDone p{margin:0;font:500 15px var(--body);opacity:.9;}
+  #trDone .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  @media (max-height:500px) and (orientation:landscape){#trBox{top:calc(70px + env(safe-area-inset-top,0px));padding:8px 14px;width:min(520px,70vw);} #trText{font-size:15px;margin-top:3px;}}
+  </style>`);
+  $("app").insertAdjacentHTML("beforeend",`<div id="trBox" hidden><button id="trSkip">Пропустить ✕</button><div id="trStep"></div><div id="trText"></div><div id="trDots"></div></div>
+  <div id="trDone" hidden><div class="panel"><h2>🏆 Обучение пройдено!</h2><p id="trDoneCoins"></p><p>Теперь проверь себя в настоящем бою.</p>
+  <div class="btns"><button class="btn" id="trFight" data-primary>В бой с ботом</button><button class="btn alt" id="trMenu">В меню</button></div></div></div>`);
+  $("trSkip").onclick=e=>{e.stopPropagation();trSkip();};
+  $("trFight").onclick=()=>{trCleanup();quickFight();};$("trMenu").onclick=()=>{trCleanup();showHome();};}
+// hooks: what the player does in the training, and a dummy that never fights back or falls
+{const _hit=doHit;doHit=function(att,def){if(TR.on&&def===TR.D){def.hp=def.maxHp;if(att===TR.P){if(att.held&&PDEF[att.held.type].gun)TR.gunHits++;else TR.punches++;}}return _hit.apply(this,arguments);};
+ const _rel=release;release=function(f){const pr=f&&f.held;const r=_rel.apply(this,arguments);if(TR.on&&f===TR.P&&pr&&pr.type!=="person")TR.thrown++;return r;};
+ const _ult=doUlt;doUlt=function(f){const r=_ult.apply(this,arguments);if(TR.on&&f===TR.P)TR.ulted=true;return r;};
+ const _bt=botThink;botThink=function(f){if(TR.on&&f===TR.D){const a=f.ai;a.mx=a.mz=0;f.atk=f.grab=f.dodge=f.ult=false;return;}return _bt.apply(this,arguments);};}
+document.addEventListener("click",e=>{if(e.target&&e.target.id==="helpTrain"){e.stopPropagation();startTraining();}});
+
 </script>
 </body></html>
