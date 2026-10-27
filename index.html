@@ -4711,7 +4711,7 @@ function bindControls(){
   ctLoad();ctHints();applyTouch();}
 // ---------- VK launch: a full sound switch, a help screen (how to play, support, personal data) and a first-fight tutorial ----------
 const SUPPORT_URL=/*@@GROUP@@*/"https://vk.ru/club242495944";
-const PRIVACY_URL=/*@@PRIVACY@@*/"",TERMS_URL=/*@@TERMS@@*/"";
+const PRIVACY_URL=/*@@PRIVACY@@*/"https://vk.ru/@-242495944-politika-konfidencialnosti-igry-draka-za-karernyi-rost",TERMS_URL=/*@@TERMS@@*/"https://vk.ru/@-242495944-polzovatelskoe-soglashenie-igry-draka-za-karernyi-rost";
 function soundOn(){return save.sound!==false;}
 function applySound(){try{if(MASTER)MASTER.gain.value=(AUDIO_MUTE||!soundOn())?0:1;}catch(e){}
   const on=soundOn(),b=$("tSound");if(b){b.setAttribute("aria-pressed",String(on));b.textContent=on?"🔊":"🔇";}
