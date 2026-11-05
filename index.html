@@ -2216,7 +2216,7 @@ function roundSetup(){const [a,b]=F.fs;
   F.fin=null;for(const f of F.fs){resetLook(f.p);Object.assign(f,{hp:f.maxHp,dmgTaken:0,ultT:0,cd:0,swing:0,stun:0,held:null,ko:false,flash:0,kx:0,kz:0,slip:0,recoil:0,pick:null,thr:null,rise:0,burst:0,kick:0,emptyWarned:false,boost:0,slowT:0,dodgeT:0,dodgeCd:0,invuln:0,lift:0,zap:0,dmgMult:1,carry:null,carriedBy:null,fly:null,esc:0,carryT:0});f.p.root.position.y=0;f.p.root.rotation.set(0,0,0);f.p.root.visible=true;f.p.body.rotation.set(0,0,0);f.p.ring.visible=true;f.p.vx=f.p.vz=0;f.p.ring.material.color.set(f.idx?"#ff8fa8":"#f2c230");}
   const SP=MAP.spawn||[[-4,9],[4.5,9]];a.p.root.position.set(SP[0][0],0,SP[0][1]);a.p.root.rotation.y=Math.PI/2;b.p.root.position.set(SP[1][0],0,SP[1][1]);b.p.root.rotation.y=-Math.PI/2;for(const f of F.fs){f.fallT=null;f.trainHit=0;f.p.root.visible=true;}
   resetWaterman();F.phase="intro";F.t=0;F.jan=null;F.helper=null;F.cleaners=[];clearUfx();F.ufx=[];F.meteorT=2.5;clearTemp();clearMeteors();portal.visible=false;F.portal=null;
-  let wid="office";if(save.worlds!==false&&F.round>1&&!MAP.noWorlds){const pool=WORLDS.filter(w=>w.id!=="office"&&w.id!==F.lastWorld);wid=pool[Math.random()*pool.length|0].id;}
+  let wid="office";if(F.mode==="online"&&NET.role==="guest"){wid=WORLDS.some(w=>w.id===NET.forceWorld)?NET.forceWorld:"office";}else if(save.worlds!==false&&F.round>1&&!MAP.noWorlds){const pool=WORLDS.filter(w=>w.id!=="office"&&w.id!==F.lastWorld);wid=pool[Math.random()*pool.length|0].id;}
   F.lastWorld=wid;setWorld(wid);F.introDur=wid==="office"?1.3:2.4;if(wid!=="office")openPortal(WORLD);
   banner("Раунд "+F.round+(wid!=="office"?" · Портал: "+WORLD.name:""),wid!=="office"?2200:1100);updateHUD();}
 function heldLabel(f){if(f.carry)return "Несёт: "+byId(f.carry.id).name;if(f.carriedBy)return "Вырывается…";if(f.fly)return "Летит!";if(f.pick)return "Поднимает…";if(!f.held)return "Голые руки";const d=PDEF[f.held.type];const n=f.held.type==="person"?f.held.person.c.name:d.name;return "В руках: "+n+(d.gun?(f.held.ammo>0?" · "+f.held.ammo:" · пусто"):"");}
@@ -3983,8 +3983,8 @@ function netTick(){if(!F||F.mode!=="online"||!NET.inFight)return;const now=perfo
   if(now-NET.lastRx>6000)netLost("Соперник не отвечает");}
 function netSnap(){const fs=F.fs.map(f=>{const p=f.p.root.position;return [+p.x.toFixed(2),+p.z.toFixed(2),+f.p.root.rotation.y.toFixed(2),Math.round(f.hp),Math.round(f.sp),f.ko?1:0,f.held?PROPS.indexOf(f.held):-1,f.carry?1:0];});
   const ps=[];NET.propT=(NET.propT+1)%6;const nMap=PROPS.length;for(let i=0;i<nMap;i++){const pr=PROPS[i];if(pr.type==="person")continue;if(pr.vel||pr.held||i%6===NET.propT||pr.netAlive!==pr.alive){pr.netAlive=pr.alive;const q=pr.g.position;ps.push([i,+q.x.toFixed(2),+q.y.toFixed(2),+q.z.toFixed(2),pr.alive?1:0]);}}
-  return {k:"s",ph:F.phase,r:F.round,w:F.wins,lo:F.loser?F.loser.idx:-1,f:fs,p:ps};}
-function netApplySnap(d){if(d.r!==F.round){F.round=d.r;F.wins=d.w.slice();roundSetup();}
+  return {k:"s",ph:F.phase,r:F.round,w:F.wins,lo:F.loser?F.loser.idx:-1,f:fs,p:ps,wd:F.lastWorld||"office"};}
+function netApplySnap(d){if(d.r!==F.round){F.round=d.r;F.wins=d.w.slice();NET.forceWorld=d.wd;roundSetup();}
   if(d.ph==="ko"&&F.phase==="fight"&&d.lo>=0){const l=F.fs[d.lo];l.hp=0;l.ko=true;if(l.held)dropHeld(l);F.phase="ko";F.t=0;F.wins=d.w.slice();F.loser=l;if(window.koStart)koStart(l,F.fs[1-l.idx],{});else{banner("Нокаут!",1400);hitstop=.3;slowmo=1.2;}drawChalk(F.wins[0]+" : "+F.wins[1]);$("skip").hidden=true;}
   F.wins=d.w.slice();
   d.f.forEach((s,i)=>{const f=F.fs[i],p=f.p.root.position,mine=i===NET.me,dist=Math.hypot(s[0]-p.x,s[1]-p.z);
@@ -4808,7 +4808,16 @@ document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest
 
 // Training: pick up → throw → find the gun → shoot → punch → dodge → ult
 const TR={on:false,starting:false,step:-1,P:null,D:null,props:[],arrow:null,thrown:0,gunHits:0,punches:0,ulted:false,ok:0,doneT:0,raf:0};
-function trKey(a){return TOUCH?`«${{atk:"Удар",grab:"Взять",dodge:"Рывок",ult:"Ульта"}[a]}»`:ctAct([CT.kb.p1],a);}
+function trCodes(a){const c=[...(CT.kb.p1[a]||[])];for(const k of CT.kb.p2[a]||[])if(/^Mouse/.test(k)&&!c.includes(k))c.push(k);return c.slice(0,3);}
+function trKey(a){if(TOUCH)return `«${{atk:"Удар",grab:"Взять",dodge:"Рывок",ult:"Ульта",dance:"💃"}[a]}»`;const c=trCodes(a);return c.length?c.map(ctK).join(" или "):"<kbd>—</kbd>";}
+// the controls card before the training: every key at a glance and where to change them
+function trCtlRows(){if(TOUCH)return [["🕹","Ходить","джойстик слева"],["👊","Удар","кнопка «Удар»"],["✋","Взять / бросить","кнопка «Взять». Рядом с соперником — поднять его"],["💨","Рывок","кнопка «Рывок»"],["⚡","Ульта","кнопка «Ульта», когда шкала полная"],["💃","Танец","кнопка 💃 — копит ульту"]];
+  return [["🕹","Ходить",ctMoveLbl(CT.kb.p1)+" или стрелки"],["👊","Удар",trKey("atk")],["✋","Взять / бросить",trKey("grab")+"<small>рядом с соперником — поднять его</small>"],["💨","Рывок",trKey("dodge")],["🏃","Бег (держать)",trKey("sprint")],["⚡","Ульта",trKey("ult")],["💃","Танец",trKey("dance")],["⏸","Пауза","<kbd>Esc</kbd>"]];}
+function trCtlShow(){const el=$("trCtl");if(!el)return;$("trCtlRows").innerHTML=trCtlRows().map(([i,n,k])=>`<div class="trcr"><span>${i}</span><b>${n}</b><em>${k}</em></div>`).join("");
+  $("trCtlNote").innerHTML=TOUCH?"⚙ Размер и место кнопок можно поменять: шестерёнка на главном экране или в паузе → «Управление» → «Сенсор».":"⚙ Любую клавишу можно поменять: шестерёнка на главном экране или в паузе → «Управление».";
+  el.hidden=false;$("trBox").hidden=true;state="paused";save.ctlTip=1;}
+function trCtlGo(){const el=$("trCtl");if(!el||el.hidden)return;el.hidden=true;$("trBox").hidden=false;if(F&&F.training)state="fight";}
+addEventListener("keydown",e=>{const el=$("trCtl");if(!el||el.hidden)return;if(e.code==="Enter"||e.code==="NumpadEnter"||e.code==="Space"){e.preventDefault();e.stopPropagation();trCtlGo();}},true);
 const trHeldGun=()=>TR.P.held&&PDEF[TR.P.held.type].gun;
 const TR_STEPS=[
   {t:()=>`🖥 Подойди к монитору под стрелкой и подними его: ${trKey("grab")}`,go:()=>TR.mon,ok:()=>TR.P.held&&TR.P.held.type!=="person"&&!trHeldGun()},
@@ -4833,7 +4842,7 @@ function startTraining(){trCleanup();save.tut=1;TR.starting=true;
   if(!TR.arrow){TR.arrow=new THREE.Mesh(new THREE.ConeGeometry(.36,.8,20),new THREE.MeshBasicMaterial({color:"#ffd84a"}));TR.arrow.rotation.x=Math.PI;
     TR.ring=new THREE.Mesh(new THREE.RingGeometry(.52,.7,40),new THREE.MeshBasicMaterial({color:"#ffd84a",transparent:true,opacity:.85,side:THREE.DoubleSide,depthWrite:false}));TR.ring.rotation.x=-Math.PI/2;}
   scene.add(TR.arrow);scene.add(TR.ring);TR.arrow.visible=TR.ring.visible=false;
-  trUI();$("trBox").hidden=false;$("trDone").hidden=true;
+  trUI();$("trBox").hidden=false;$("trDone").hidden=true;trCtlShow();
   TR.on=true;TR.step=-1;TR.ok=0;TR.doneT=0;cancelAnimationFrame(TR.raf);TR.raf=requestAnimationFrame(trLoop);}
 function trSet(i){TR.step=i;const s=TR_STEPS[i];if(!s)return;if(s.enter)s.enter();trText();}
 function trText(){const s=TR_STEPS[TR.step];if(!s)return;
@@ -4861,7 +4870,7 @@ function trFinish(){if(!TR.on)return;save.trained=1;save.tut=1;const first=!save
 function trSkip(){save.trained=1;save.tut=1;persist();trCleanup();showHome();}
 function trCleanup(){TR.on=false;cancelAnimationFrame(TR.raf);if(TR.arrow){TR.arrow.visible=false;if(TR.arrow.parent)TR.arrow.parent.remove(TR.arrow);}if(TR.ring&&TR.ring.parent)TR.ring.parent.remove(TR.ring);
   for(const pr of TR.props){if(pr.held&&pr.held.held===pr)pr.held.held=null;scene.remove(pr.g);const i=PROPS.indexOf(pr);if(i>=0)PROPS.splice(i,1);}TR.props.length=0;
-  const b=$("trBox");if(b)b.hidden=true;const d=$("trDone");if(d)d.hidden=true;if(F&&F.training)F.training=false;}
+  const b=$("trBox");if(b)b.hidden=true;const d=$("trDone");if(d)d.hidden=true;const cc=$("trCtl");if(cc)cc.hidden=true;if(F&&F.training)F.training=false;}
 function trUI(){if($("trBox"))return;
   document.head.insertAdjacentHTML("beforeend",`<style>
   #trBox{position:absolute;left:50%;top:calc(92px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:31;width:min(560px,94vw);background:rgba(14,15,20,.9);color:var(--paper);border-radius:18px;padding:12px 16px 12px;box-shadow:0 10px 30px rgba(0,0,0,.45),inset 0 0 0 2px rgba(255,216,74,.6);text-align:center;pointer-events:auto;transition:box-shadow .2s,background .2s;}
@@ -4875,12 +4884,23 @@ function trUI(){if($("trBox"))return;
   #trDone .panel{max-width:min(440px,92vw);text-align:center;gap:12px;}
   #trDone h2{font:400 30px var(--display);margin:0;} #trDone p{margin:0;font:500 15px var(--body);opacity:.9;}
   #trDone .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  #trCtl{position:absolute;inset:0;z-index:46;display:flex;align-items:center;justify-content:center;background:rgba(10,11,14,.55);padding:12px;}
+  #trCtl[hidden]{display:none;}
+  #trCtl .panel{max-width:min(520px,94vw);max-height:calc(100% - 8px);overflow:auto;gap:10px;}
+  #trCtl h2{font:400 28px var(--display);margin:0;text-align:center;}
+  .trcl{display:flex;flex-direction:column;gap:5px;}
+  .trcr{display:grid;grid-template-columns:30px minmax(96px,auto) 1fr;gap:8px;align-items:center;background:rgba(251,250,246,.06);border-radius:10px;padding:7px 10px;font:500 14px var(--body);}
+  .trcr span{font-size:19px;text-align:center;} .trcr b{font-weight:600;} .trcr em{font-style:normal;text-align:right;} .trcr em small{display:block;font-size:11px;opacity:.7;margin-top:2px;}
+  .trcr kbd{font-size:13px;}
+  .trcn{margin:0;font:500 13.5px/1.4 var(--body);color:var(--gold,#ffd84a);text-align:center;}
+  @media (max-height:500px){#trCtl h2{font-size:22px;} .trcr{padding:5px 9px;font-size:13px;} #trCtl .panel{gap:7px;}}
   @media (max-height:500px) and (orientation:landscape){#trBox{top:calc(70px + env(safe-area-inset-top,0px));padding:8px 14px;width:min(520px,70vw);} #trText{font-size:15px;margin-top:3px;}}
   </style>`);
   $("app").insertAdjacentHTML("beforeend",`<div id="trBox" hidden><button id="trSkip">Пропустить ✕</button><div id="trStep"></div><div id="trText"></div><div id="trDots"></div></div>
+  <div id="trCtl" hidden><div class="panel"><h2>🎮 Управление</h2><div class="trcl" id="trCtlRows"></div><p class="trcn" id="trCtlNote"></p><button class="btn" id="trCtlGo" data-primary>Понятно, начинаем</button></div></div>
   <div id="trDone" hidden><div class="panel"><h2>🏆 Обучение пройдено!</h2><p id="trDoneCoins"></p><p>Дальше — карьера: путь от стажёра до генерального директора. Новые механики, боссы и повышения.</p>
   <div class="btns"><button class="btn" id="trFight" data-primary>Начать карьеру</button><button class="btn alt" id="trMenu">В меню</button></div></div></div>`);
-  $("trSkip").onclick=e=>{e.stopPropagation();trSkip();};
+  $("trSkip").onclick=e=>{e.stopPropagation();trSkip();};$("trCtlGo").onclick=e=>{e.stopPropagation();trCtlGo();};
   $("trFight").onclick=()=>{trCleanup();if(typeof crStart==="function")crStart(typeof crNext==="function"?crNext():0);else quickFight();};$("trMenu").onclick=()=>{trCleanup();showHome();};}
 // hooks: what the player does in the training, and a dummy that never fights back or falls
 {const _hit=doHit;doHit=function(att,def){if(TR.on&&def===TR.D){def.hp=def.maxHp;if(att===TR.P){if(att.held&&PDEF[att.held.type].gun)TR.gunHits++;else TR.punches++;}}return _hit.apply(this,arguments);};
@@ -5658,7 +5678,7 @@ function dzStep(f,o,mv,act,dt){if(F.zs&&f.zombie)return;
     if(f.danceT<=0){f.dzCd=DZ_CD;if(!F.zs&&!(typeof crIn==="function"&&crIn()&&!crGate("ult")))f.sp=Math.min(100,f.sp+8);
       popText(F.zs?"Публика в восторге!":"+ульта",pos.x,3.1,pos.z,"#7aa2ff");burst(pos.x,2.4,pos.z,"#ff8fa8",6,4);burst(pos.x,2.4,pos.z,"#f2c230",6,4);if(!f.bot)track("danceFin",1,f);}
     return;}
-  if(f.bot&&!f.zombie&&!F.zs&&!F.fin&&F.phase==="fight"&&op){f.dzBot=(f.dzBot||1)-dt;if(f.dzBot<=0){f.dzBot=1;
+  if(f.bot&&!f.zombie&&!F.zs&&!F.fin&&!F.training&&F.phase==="fight"&&op){f.dzBot=(f.dzBot||1)-dt;if(f.dzBot<=0){f.dzBot=1;
     if(dist>6.5&&f.hp>f.maxHp*.35&&Math.random()<.1)want=true;else if(o.stun>.6&&dist>3&&Math.random()<.2)want=true;}}
   if(want&&f.dzCd<=0&&F.phase==="fight"&&!f.ko&&!f.carry&&!f.carriedBy&&!f.fly&&!f.pick&&!f.thr&&f.swing<=0&&f.stun<=0){
     f.danceT=DZ_DUR;f.danceNow=danceFor(f);popText("💃",pos.x,3,pos.z,"#ff8fa8");beep(880,.08,"triangle",.03);setTimeout(()=>beep(1175,.1,"triangle",.03),90);
@@ -5731,6 +5751,12 @@ function koClear(f,c){if(!F.crowd)return;KO.hid=KO.hid||new Set();const dx=c.x-f
     if(block&&cr.root.visible){cr.root.visible=false;KO.hid.add(cr);}else if(!block&&KO.hid.has(cr)){cr.root.visible=true;KO.hid.delete(cr);}}}
 window.koCam=koCam;window.koStart=koStart;window.dzStep=dzStep;
 
+// ===== 8b. mirror matches: two players on the same fighter get two separate bodies (online both often keep the default one) =====
+const MIRROR={last:null};
+function mirrorPerson(id){const key=id+"#2";let p=people[key];if(p&&p.root.parent)return p;const c=byId(id);if(!c)return people[id];const sp=specFor(c);p=skinPost(makePerson(sp),sp);p.root.visible=false;people[key]=p;return p;}
+{const _fi=fighter;fighter=function(id,idx,bot){const f=_fi.apply(this,arguments);try{if(idx===0)MIRROR.last=id;else if(idx===1&&id===MIRROR.last&&f.p&&f.p===people[id])f.p=mirrorPerson(id);}catch(e){console.warn(e);}return f;};}
+{const _rp=rebuildPerson;rebuildPerson=function(id){const k=id+"#2";if(people[k]){scene.remove(people[k].root);delete people[k];}return _rp.apply(this,arguments);};}
+
 // ===== 9. screens: the Path, the level chip, level-up cards, XP on results, the ascension question =====
 const PLVUI={tab:"lv"};
 function plvChip(){const I=plvInfo(),c=$("plvChipN");if(c){c.textContent=I.lv;$("plvChipBar").style.width=I.pct+"%";}const s=$("pathSub");if(s)s.textContent=`Уровень ${I.lv}${ascN()?` · 🏔 ${ascN()}`:""} · награды`;}
@@ -5774,7 +5800,10 @@ function plvPump(){if(PLV.showing||!PLV.q.length||state==="fight"||state==="paus
 setInterval(()=>{try{plvPump();}catch(e){}},400);
 function xpLine(){if(!F||!F.plvGain)return "";const I=plvInfo();return `<div class="xpl"><span>Опыт бойца <b>+${F.plvGain}</b></span><span class="xpb"><i style="width:${I.pct}%"></i></span><span>Уровень <b>${I.lv}</b></span></div>`;}
 {const _sh=show;show=function(id){_sh.apply(this,arguments);try{if(id&&id!=="paused")koEnd();if(id==="result"||id==="fover"||id==="cres"){const host=id==="cres"?document.querySelector("#cres .panel"):document.querySelector("#"+id+" .board");if(host){let x=host.querySelector(".xpwrap");if(!x){x=document.createElement("div");x.className="xpwrap";const b=host.querySelector(".btns");host.insertBefore(x,b||null);}x.innerHTML=xpLine();}}
-  if(id==="home")plvChip();}catch(e){}};}
+  if(id==="home"){plvChip();ctlTip();}}catch(e){}};}
+function ctlTip(){if(save.ctlTip||!save.trained)return;const g=$("tCtrl");if(!g)return;save.ctlTip=1;persist();setTimeout(()=>{if(state!=="menu"||$("home").hidden)return;const r=g.getBoundingClientRect(),el=$("ctlTip");
+  el.innerHTML=TOUCH?"⚙ Здесь можно передвинуть и увеличить кнопки управления":"⚙ Здесь можно поменять любые клавиши управления";el.style.top=(r.bottom+10)+"px";el.style.right=Math.max(8,innerWidth-r.right-6)+"px";el.hidden=false;g.classList.add("ping");
+  clearTimeout(ctlTip.h);ctlTip.h=setTimeout(()=>{el.hidden=true;g.classList.remove("ping");},7000);el.onclick=()=>{el.hidden=true;g.classList.remove("ping");};},1200);}
 {const _tm=toMenuWorld;toMenuWorld=function(){try{koEnd();}catch(e){}return _tm.apply(this,arguments);};}
 
 (function prgUI(){
@@ -5839,11 +5868,15 @@ function xpLine(){if(!F||!F.plvGain)return "";const I=plvInfo();return `<div cla
   .crasc{font:600 12.5px var(--body);color:var(--gold);}
   #ascAsk{position:absolute;inset:0;z-index:40;display:grid;place-items:center;background:rgba(7,8,11,.72);}
   #ascAsk[hidden]{display:none;}
-  #ascAsk .board{max-width:min(460px,92vw);}`;
+  #ascAsk .board{max-width:min(460px,92vw);}
+  #ctlTip{position:fixed;z-index:30;max-width:min(300px,70vw);background:var(--gold);color:var(--ink);font:600 13.5px/1.35 var(--body);padding:9px 12px;border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,.35);cursor:pointer;animation:plvIn .5s cubic-bezier(.2,1.5,.4,1) both;}
+  #ctlTip::before{content:"";position:absolute;top:-7px;right:14px;border:7px solid transparent;border-top:0;border-bottom-color:var(--gold);}
+  #ctlTip[hidden]{display:none;} #tCtrl.ping{box-shadow:0 0 0 3px var(--gold);}`;
   document.head.insertAdjacentHTML("beforeend",`<style>${css}</style>`);
   const app=$("app");
   app.insertAdjacentHTML("beforeend",`<div id="kofx" hidden><i class="kobar t"></i><i class="kobar b"></i><i class="koflash"></i><i class="kolines"></i><div class="kotxt"><div id="koT"></div><div id="koS"></div><div id="koN"></div></div></div>
     <div id="plvUp" hidden><small>НОВЫЙ УРОВЕНЬ</small><b id="plvUpN">2</b><div id="plvUpR"></div></div>
+    <div id="ctlTip" hidden></div>
     <div id="ascAsk" hidden><div class="board"><h2 id="ascTitle">Восхождение</h2><p class="lead" id="ascTxt"></p><div class="btns"><button class="btn gold" id="ascYes">🏔 Начать</button><button class="btn alt" id="ascNo">Не сейчас</button></div></div></div>`);
   const hr=document.querySelector("#home .hubR");if(hr)hr.insertAdjacentHTML("afterbegin",`<button class="plvc" id="plvChip" title="Путь бойца"><b id="plvChipN">1</b><span>Уровень<i><s id="plvChipBar"></s></i></span></button>`);
   const inv=document.querySelector('#home .pane[data-p="inv"]');if(inv)inv.insertAdjacentHTML("afterbegin",`<button class="mc grad g7" id="goPath"><b>Путь бойца</b><span id="pathSub">Уровень 1 · награды</span><em>🧗</em></button>`);
