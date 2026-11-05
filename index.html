@@ -3747,7 +3747,7 @@ function renderSolo(){showcase([save.sel]);const c=byId(save.sel);
   for(const b of $("soloGrid").querySelectorAll(".card"))b.onclick=()=>{const id=b.dataset.id;if(!save.owned.includes(id)){showShop(id);return;}save.sel=id;persist();renderSolo();};}
 
 // ---------- rating: global and friends (VK through our server, Yandex through its leaderboards), personal bests everywhere ----------
-const SERVER=/*@@SERVER@@*/"";
+const SERVER=/*@@SERVER@@*/"https://158-160-182-49.sslip.io";
 const RATE={mode:"endless",scope:"world",cache:{},friends:null};
 function vkParams(){return location.search.slice(1);}
 function submitScore(mode,score,char){if(mode==="endless")save.bestT.endless=Math.max(save.bestT.endless||0,score);else if(mode==="zombie")save.zbest=Math.max(save.zbest||0,score);persist(true);
