@@ -2357,15 +2357,15 @@ function physicsProps(dt,A,B){
       pr.spin=0;pr.g.rotation.set(0,pr.g.rotation.y,0);pr.vel=null;pr.owner=null;if(hard&&d.dur!==Infinity){pr.dur--;if(pr.dur<=0)breakProp(pr);else dent(pr);}}}}
 function stepFighter(f,o,dt){const r=f.p.root,pos=r.position;
     if(F.fin&&F.fin.l===f&&F.fin.stage!=="prompt")return;
-    if(hasEdge()&&!f.carriedBy&&!f.fly&&!(f.bounce>0)){if(f.fallT==null&&offEdge(pos.x,pos.z,.1)){f.fallT=0;SFX.yell();if(f.held)dropHeld(f);if(!f.ko&&F.phase==="fight"){f.invuln=0;f.hp=Math.min(f.hp,1);doHit(o,f,999,0,0,MAP.fallLabel||"Полёт с крыши",null);banner("За край!",1300);}}
-      if(f.fallT!=null){f.fallT+=dt;pos.y=-6*f.fallT*f.fallT;r.rotation.x-=dt*5;r.rotation.z+=dt*2;animatePerson(f.p,dt,false,{cheer:true,snap:true});if(f.fallT>2.4)r.visible=false;return;}}
+    if(hasEdge()&&!f.carriedBy&&!f.fly&&!(f.bounce>0)){if(f.fallT==null&&offEdge(pos.x,pos.z,window.fallStart?.3:.1)&&!(F.mode==="online"&&NET.role==="guest")){if(window.fallStart)fallStart(f,o);else{f.fallT=0;SFX.yell();if(f.held)dropHeld(f);if(!f.ko&&F.phase==="fight"){f.invuln=0;f.hp=Math.min(f.hp,1);doHit(o,f,999,0,0,MAP.fallLabel||"Полёт с крыши",null);banner("За край!",1300);}}}
+      if(f.fallT!=null){f.fallT+=dt;if(f.fallKO&&f.fallT>=1.5){f.fallKO=false;if(window.fallKO)fallKO(f);}pos.y=-6*f.fallT*f.fallT;r.rotation.x-=dt*5;r.rotation.z+=dt*2;animatePerson(f.p,dt,false,{cheer:true,snap:true});if(f.fallT>2.4)r.visible=false;return;}}
     f.cd-=dt;f.ultT-=dt;f.stun-=dt;f.flash-=dt;f.slip-=dt;f.boost-=dt;f.slowT-=dt;f.dodgeCd-=dt;f.invuln-=dt;f.comboT-=dt;f.zap-=dt;
     if(f.carriedBy){carriedUpdate(f,dt);for(const m2 of f.p.mats)m2.emissive.setRGB(f.flash>0?.9:0,f.flash>0?.9:0,f.flash>0?.9:0);return;}
     if(f.fly){flyUpdate(f,dt);return;}f.recoil=Math.max(0,f.recoil-dt*4);
     let mv={x:0,z:0,on:false},wantAtk=false,wantGrab=false,wantDodge=false,wantUlt=false;
     if(F.phase==="fight"&&!f.ko){
       if(f.bot){(f.zombie?zThink:F.zs?zBuddyThink:botThink)(f,o,dt*f.diff);mv=edgeSafeMove(pos,{x:f.ai.mx,z:f.ai.mz,on:f.ai.mx||f.ai.mz});wantAtk=f.atk;wantGrab=f.grab;wantDodge=f.dodge;wantUlt=f.ult;f.atk=f.grab=f.dodge=f.ult=false;}
-      else{mv=readMove(f.idx);wantAtk=ctl[f.idx].atk;wantGrab=ctl[f.idx].grab;wantDodge=ctl[f.idx].dodge;wantUlt=ctl[f.idx].ult;}}
+      else{mv=readMove(f.idx);if(window.humanEdgeMove)mv=humanEdgeMove(f,pos,mv);wantAtk=ctl[f.idx].atk;wantGrab=ctl[f.idx].grab;wantDodge=ctl[f.idx].dodge;wantUlt=ctl[f.idx].ult;}}
     if(window.dzStep)dzStep(f,o,mv,wantAtk||wantGrab||wantDodge||wantUlt,dt);ctl[f.idx].atk=ctl[f.idx].grab=ctl[f.idx].dodge=ctl[f.idx].ult=false;
     const busy=f.pick||f.ko||f.slip>0;
     const spr=sprintStep(f,mv,dt);let speed=mv.on&&!busy?5.6*spr*(f.spd||1)*(f.held?PDEF[f.held.type].slow:1)*(f.stun>0?.25:1)*(f.swing>0?.55:1)*(f.boost>0?1.35:1)*(f.slowT>0?.4:1)*(f.carry?.55:1):0;
@@ -2373,7 +2373,7 @@ function stepFighter(f,o,dt){const r=f.p.root,pos=r.position;
     pos.x+=f.kx*dt;pos.z+=f.kz*dt;f.kx*=Math.pow(GRAV<10?.2:.015,dt);f.kz*=Math.pow(GRAV<10?.2:.015,dt);
     if(wantDodge&&f.dodgeCd<=0&&!busy&&!f.thr&&f.stun<=0&&F.phase==="fight"){const dx=mv.on?mv.x:Math.sin(r.rotation.y),dz=mv.on?mv.z:Math.cos(r.rotation.y);f.dodgeT=.3;f.dodgeCd=.85;f.invuln=.28;f.p.vx=dx*12;f.p.vz=dz*12;r.rotation.y=Math.atan2(dx,dz);SFX.whoosh();f.stats.dodges++;track("dodge",1,f);}
     if(wantUlt&&!f.ko&&F.phase==="fight"){if(f.sp>=100){if(F.zs&&o===ZFAR){f.sp=0;zUltAoE(f);banner(byId(f.id).ult.name,1200);}else{doUlt(f,o);if(F.zs)zUltAoE(f);}}else if(!f.bot)toast(`Ульта заряжена на ${Math.floor(f.sp)}%`);}
-    let moving;if(f.dodgeT>0){f.dodgeT-=dt;const q={x:pos.x+f.p.vx*dt,z:pos.z+f.p.vz*dt};collide(q,.42,o===ZFAR||o.carriedBy||o.fly?[]:[o.p.root.position]);pos.x=q.x;pos.z=q.z;moving=true;burst(pos.x,.5,pos.z,f.idx?"#ff8fa8":"#f2c230",1,1);}
+    let moving;if(f.dodgeT>0){f.dodgeT-=dt;const q={x:pos.x+f.p.vx*dt,z:pos.z+f.p.vz*dt};collide(q,.42,o===ZFAR||o.carriedBy||o.fly?[]:[o.p.root.position]);if(window.edgeDash)edgeDash(f,pos,q);pos.x=q.x;pos.z=q.z;moving=true;burst(pos.x,.5,pos.z,f.idx?"#ff8fa8":"#f2c230",1,1);}
     else moving=steer(f.p,mv.x,mv.z,speed,dt,[...(o===ZFAR||o.carriedBy||o.fly||f.carry?[]:[o.p.root.position]),...F.crowd.filter(c=>!c.pr.held&&!c.pr.vel&&c.down<=0&&c.rise>=1).map(c=>c.root.position)]);
     for(let i=PEELS.length-1;i>=0;i--){const pe=PEELS[i];if(pe.kind==="scorch")continue;if(f.slip<=0&&!f.ko&&Math.hypot(pe.x-pos.x,pe.z-pos.z)<(pe.kind==="puddle"?.8:.4)){f.slip=1;f.stun=1;f.kx=Math.sin(r.rotation.y)*6;f.kz=Math.cos(r.rotation.y)*6;toast(pe.kind==="puddle"?"Поскользнулся на луже":"Банановая кожура!");beep(500,.4,"sine",.06,-400);if(pe.kind==="peel"){scene.remove(pe.m);PEELS.splice(i,1);}}}
     if(wantGrab&&!f.pick&&!f.thr&&f.stun<=0){if(f.carry)releaseCarried(f.carry,"throw");else if(f.held)startThrow(f);else if(!tryGrabOpponent(f,o))startPick(f);}
@@ -3978,17 +3978,17 @@ function netPress(a){if(state!=="fight")return;ctl[NET.me][a]=true;NET.pend[a]=1
 function netMove(i){if(i!==NET.me)return NET.remote;let x=0,z=0;if(TJ.on){const n=Math.hypot(TJ.x,TJ.z)||1,m=Math.min(1,n);return {x:TJ.x/n*m,z:TJ.z/n*m,on:true};}
   for(const s of [CT.kb.p1,CT.kb.p2]){if(ctDown(s.left))x-=1;if(ctDown(s.right))x+=1;if(ctDown(s.up))z-=1;if(ctDown(s.down))z+=1;}x=Math.max(-1,Math.min(1,x));z=Math.max(-1,Math.min(1,z));const n=Math.hypot(x,z)||1;return {x:x/n,z:z/n,on:!!(x||z)};}
 function netTick(){if(!F||F.mode!=="online"||!NET.inFight)return;const now=performance.now();
-  if(now-NET.lastSend>33||Object.keys(NET.pend).length){NET.lastSend=now;const mv=netMove(NET.me);const d={k:"in",x:+mv.x.toFixed(2),z:+mv.z.toFixed(2),sh:keys.ShiftLeft||keys.ShiftRight?1:0};for(const a in NET.pend)d[a[0]]=1;NET.pend={};netRelay(d);}
+  if(now-NET.lastSend>33||Object.keys(NET.pend).length){NET.lastSend=now;const mv=netMove(NET.me);const d={k:"in",x:+mv.x.toFixed(2),z:+mv.z.toFixed(2),sh:keys.ShiftLeft||keys.ShiftRight?1:0};if(NET.role==="guest"&&F.fs[NET.me]){const q=F.fs[NET.me].p.root.position;d.px=+q.x.toFixed(2);d.pz=+q.z.toFixed(2);}for(const a in NET.pend)d[a[0]]=1;NET.pend={};netRelay(d);}
   if(NET.role==="host"&&now-NET.lastSnap>66){NET.lastSnap=now;netRelay(netSnap());}
   if(now-NET.lastRx>6000)netLost("Соперник не отвечает");}
-function netSnap(){const fs=F.fs.map(f=>{const p=f.p.root.position;return [+p.x.toFixed(2),+p.z.toFixed(2),+f.p.root.rotation.y.toFixed(2),Math.round(f.hp),Math.round(f.sp),f.ko?1:0,f.held?PROPS.indexOf(f.held):-1,f.carry?1:0];});
+function netSnap(){const fs=F.fs.map(f=>{const p=f.p.root.position;return [+p.x.toFixed(2),+p.z.toFixed(2),+f.p.root.rotation.y.toFixed(2),Math.round(f.hp),Math.round(f.sp),f.ko?1:0,f.held?PROPS.indexOf(f.held):-1,f.carry?1:0,f.fallT!=null?1:0];});
   const ps=[];NET.propT=(NET.propT+1)%6;const nMap=PROPS.length;for(let i=0;i<nMap;i++){const pr=PROPS[i];if(pr.type==="person")continue;if(pr.vel||pr.held||i%6===NET.propT||pr.netAlive!==pr.alive){pr.netAlive=pr.alive;const q=pr.g.position;ps.push([i,+q.x.toFixed(2),+q.y.toFixed(2),+q.z.toFixed(2),pr.alive?1:0]);}}
   return {k:"s",ph:F.phase,r:F.round,w:F.wins,lo:F.loser?F.loser.idx:-1,f:fs,p:ps,wd:F.lastWorld||"office"};}
 function netApplySnap(d){if(d.r!==F.round){F.round=d.r;F.wins=d.w.slice();NET.forceWorld=d.wd;roundSetup();}
   if(d.ph==="ko"&&F.phase==="fight"&&d.lo>=0){const l=F.fs[d.lo];l.hp=0;l.ko=true;if(l.held)dropHeld(l);F.phase="ko";F.t=0;F.wins=d.w.slice();F.loser=l;if(window.koStart)koStart(l,F.fs[1-l.idx],{});else{banner("Нокаут!",1400);hitstop=.3;slowmo=1.2;}drawChalk(F.wins[0]+" : "+F.wins[1]);$("skip").hidden=true;}
   F.wins=d.w.slice();
   d.f.forEach((s,i)=>{const f=F.fs[i],p=f.p.root.position,mine=i===NET.me,dist=Math.hypot(s[0]-p.x,s[1]-p.z);
-    if(!f.carriedBy&&!f.fly&&f.fallT==null){if(dist>(mine?2.5:1.4)){p.x=s[0];p.z=s[1];}else{const k=mine?.12:.35;p.x+=(s[0]-p.x)*k;p.z+=(s[1]-p.z)*k;}if(!mine)f.p.root.rotation.y=s[2];}
+    if(window.netSmoothSnap)netSmoothSnap(f,s,mine);else if(!f.carriedBy&&!f.fly&&f.fallT==null){if(dist>(mine?2.5:1.4)){p.x=s[0];p.z=s[1];}else{const k=mine?.12:.35;p.x+=(s[0]-p.x)*k;p.z+=(s[1]-p.z)*k;}if(!mine)f.p.root.rotation.y=s[2];}
     f.hp=s[3];f.sp=s[4];if(!s[5]&&f.ko&&d.ph==="fight"){f.ko=false;}
     const want=s[6]>=0?PROPS[s[6]]:null;if(want!==f.held&&!f.pick&&!f.thr){if(f.held&&!want){const pr=f.held;f.held=null;pr.held=null;}else if(want&&want.alive){if(f.held){f.held.held=null;}if(want.held&&want.held!==f)want.held.held=null;f.held=want;want.held=f;want.vel=null;}}});
   for(const [i,x,y,z,al] of d.p){const pr=PROPS[i];if(!pr)continue;if(!al&&pr.alive)breakProp(pr);else if(al&&!pr.alive)resetProp(pr);if(!al||pr.held)continue;const q=pr.g.position;
@@ -4398,7 +4398,7 @@ function startReplay(){if(!canReplay()){toast("Повтор недоступен
   let t=0,a=ko;while(a>0&&t<6){t+=fr[a].dt;a--;}let b=ko;t=0;while(b<fr.length-1&&t<2.2){b++;t+=fr[b].dt;}
   Object.assign(REPLAY,{on:true,frames:fr.slice(a,b+1),ko:ko-a,i:0,t:0,speed:1,shots:[],prev:{state,screen:SCREENS.find(s=>!$(s).hidden)},orbit:Math.random()*6});
   REC.playing=true;state="replay";show(null);$("fhud").hidden=true;$("skip").hidden=true;$("replayUI").hidden=false;$("rpShare").disabled=true;$("rpShare").textContent="Готовлю кадры…";applyRFrame(REPLAY.frames[0]);recordVideo(true);}
-function applyRFrame(fr){fr.fs.forEach((a,fi)=>{const f=F.fs[fi];if(!f)return;recNodes(f.p).forEach((n,k)=>{const o=k*6;n.position.set(a[o],a[o+1],a[o+2]);n.rotation.set(a[o+3],a[o+4],a[o+5]);});f.p.root.visible=!!a[48];if(f.p.cape)f.p.cape.rotation.x=a[49];});
+function applyRFrame(fr){if(!F)return;fr.fs.forEach((a,fi)=>{const f=F.fs[fi];if(!f)return;recNodes(f.p).forEach((n,k)=>{const o=k*6;n.position.set(a[o],a[o+1],a[o+2]);n.rotation.set(a[o+3],a[o+4],a[o+5]);});f.p.root.visible=!!a[48];if(f.p.cape)f.p.cape.rotation.x=a[49];});
   const pr=fr.pr;for(let i=0;i<PROPS.length&&i*8<pr.length;i++){const g=PROPS[i].g,o=i*8;g.position.set(pr[o],pr[o+1],pr[o+2]);g.rotation.set(pr[o+3],pr[o+4],pr[o+5]);g.visible=!!pr[o+6];g.scale.setScalar(pr[o+7]||1);}
   if(fr.w!==WORLD.id)setWorld(fr.w);for(const [name,args] of fr.fx){try{window[name](...args);}catch(e){}}}
 function replayStep(raw){const R=REPLAY;if(!R.on)return;const nearKO=Math.abs(R.i-R.ko)<70;R.speed=R.slow&&nearKO?.3:1;R.t+=raw*R.speed;R.orbit+=raw*(nearKO?.25:.45);
@@ -5700,7 +5700,7 @@ function koStart(l,w,info){if(!F||!l||!w)return;info=info||{};const att=info.att
   if(canFly){let pw=big||ult?11:8.5;if(hasEdge())for(let k=0;k<6;k++){const reach=pw/4.2+.6;if(!offEdge(lp.x+dx*reach,lp.z+dz*reach,.4))break;pw*=.6;}
     l.kx=dx*pw;l.kz=dz*pw;KO.vy=big||ult?8:6.6;KO.air=true;l.p.root.rotation.y=Math.atan2(-dx,-dz);try{SFX.whoosh();}catch(e){}}
   else if(!fallen)KO.landT=.55;
-  l.flash=Math.min(l.flash||0,.016);F.koDur=fin?2.2:2.9;hitstop=.42;slowmo=1.6;shake=Math.max(shake,.9);
+  l.flash=Math.min(l.flash||0,.016);F.koDur=fin?2.2:fallen?2.2:2.9;hitstop=fallen?0:.42;slowmo=fallen?.5:1.6;shake=Math.max(shake,.9);
   const hx=lp.x,hz=lp.z;flash(hx,1.7,hz,2.4);burst(hx,1.7,hz,"#ffd24a",22,11);burst(hx,1.7,hz,"#fbfaf6",14,8);ring(hx,hz,4.5);setTimeout(()=>{if(KO.on)ring(hx,hz,6.5);},140);
   try{beep(62,.7,"sine",.18,-30);noise(.45,.4,90);beep(150,.3,"square",.05,-110);setTimeout(()=>noise(1.6,.07,600),450);}catch(e){}
   const nm=(F.mode==="online"&&NET.names&&NET.names[w.idx])||byId(w.id).name;
@@ -5750,6 +5750,36 @@ function koClear(f,c){if(!F.crowd)return;KO.hid=KO.hid||new Set();const dx=c.x-f
   for(const cr of F.crowd){const q=cr.root.position,t=Math.max(0,Math.min(1,((q.x-f.x)*dx+(q.z-f.z)*dz)/L2)),px=f.x+dx*t-q.x,pz=f.z+dz*t-q.z,block=t>.08&&px*px+pz*pz<1.1;
     if(block&&cr.root.visible){cr.root.visible=false;KO.hid.add(cr);}else if(!block&&KO.hid.has(cr)){cr.root.visible=true;KO.hid.delete(cr);}}}
 window.koCam=koCam;window.koStart=koStart;window.dzStep=dzStep;
+
+// ===== 8c. high maps: you can't walk or dash off an edge by yourself — only hits throw you off; a fall is a 1.5 s show before the knockout =====
+function edgeInward(pos){const c=edgeClamp({x:pos.x,z:pos.z},.6);return {x:c.x-pos.x,z:c.z-pos.z};}
+function humanEdgeMove(f,pos,mv){if(!hasEdge()||!mv||!(mv.x||mv.z)||f.carriedBy||f.fly||f.fallT!=null)return mv;const n=Math.hypot(mv.x,mv.z)||1,ux=mv.x/n,uz=mv.z/n,L=.45,m=.02;
+  if(offEdge(pos.x,pos.z,-m)){const w=edgeInward(pos);return ux*w.x+uz*w.z>0?mv:{x:0,z:0,on:false};}
+  if(!offEdge(pos.x+ux*L,pos.z+uz*L,-m))return mv;
+  if(Math.abs(ux)>.05&&!offEdge(pos.x+Math.sign(ux)*L,pos.z,-m))return {x:mv.x,z:0,on:true};
+  if(Math.abs(uz)>.05&&!offEdge(pos.x,pos.z+Math.sign(uz)*L,-m))return {x:0,z:mv.z,on:true};
+  if(!f.bot&&(f.edgeTold||0)<performance.now()){f.edgeTold=performance.now()+4000;popText("Край!",pos.x,2.8,pos.z,"#ffd84a");}
+  return {x:0,z:0,on:false};}
+function edgeDash(f,pos,q){if(!hasEdge()||f.carriedBy||f.fly)return;if(offEdge(q.x,q.z,-.02)&&!offEdge(pos.x,pos.z,-.02)){q.x=pos.x;q.z=pos.z;f.dodgeT=0;f.p.vx=f.p.vz=0;}}
+function fallStart(f,o){f.fallT=0;try{SFX.yell();}catch(e){}if(f.held)dropHeld(f);f.fallKO=!f.ko&&F.phase==="fight";f.fallBy=o;const q=f.p.root.position;popText("А-а-а!",q.x,2.6,q.z,"#ff8fa8");}
+function fallKO(f){if(f.ko||!F||F.phase!=="fight")return;const o=f.fallBy||F.fs[1-f.idx];f.invuln=0;f.hp=Math.min(f.hp,1);doHit(o,f,999,0,0,MAP.fallLabel||"Полёт с крыши",null);}
+window.humanEdgeMove=humanEdgeMove;window.edgeDash=edgeDash;window.fallStart=fallStart;window.fallKO=fallKO;
+
+// ===== 8d. online smoothing: no more 15 jumps a second =====
+// the guest: its own fighter trusts local movement and only fixes real disagreements; the rival glides to an extrapolated target
+function netSmoothSnap(f,s,mine){const now=performance.now(),N=f.ns||(f.ns={});
+  if(N.t){const d=(now-N.t)/1000;if(d>.02&&d<.5){N.vx=(s[0]-N.x)/d;N.vz=(s[1]-N.z)/d;}}N.x=s[0];N.z=s[1];N.t=now;N.ry=s[2];N.mine=mine;
+  if(s[8]&&f.fallT==null&&!f.carriedBy){f.fallT=0;f.fallKO=false;try{SFX.yell();}catch(e){}}}
+function netSmoothTick(dt){if(!F||F.mode!=="online"||!NET.inFight||dt<=0)return;const now=performance.now();
+  if(NET.role==="guest"){for(const f of F.fs){const N=f.ns;if(!N||!N.t||f.carriedBy||f.fly||f.fallT!=null)continue;const p=f.p.root.position,age=Math.min(.25,(now-N.t)/1000);
+      if(N.mine){const ex=N.x-p.x,ez=N.z-p.z,d=Math.hypot(ex,ez);if(d>3.5){p.x=N.x;p.z=N.z;N.fix=false;}else{if(d>2)N.fix=true;if(N.fix){const k=Math.min(1,dt*5);p.x+=ex*k;p.z+=ez*k;if(d<.35)N.fix=false;}}}
+      else{const tx=N.x+(N.vx||0)*age,tz=N.z+(N.vz||0)*age,ex=tx-p.x,ez=tz-p.z,d=Math.hypot(ex,ez);if(d>2.8){p.x=tx;p.z=tz;}else{const k=Math.min(1,dt*9);p.x+=ex*k;p.z+=ez*k;}
+        let dr=N.ry-f.p.root.rotation.y;dr=Math.atan2(Math.sin(dr),Math.cos(dr));f.p.root.rotation.y+=dr*Math.min(1,dt*12);}}}
+  else if(NET.role==="host"&&NET.rpos){const g=F.fs[1-NET.me];if(!g||g.carriedBy||g.fly||g.fallT!=null||g.ko||g.stun>.15||g.dodgeT>0||Math.abs(g.kx)+Math.abs(g.kz)>.8)return;
+    const R=NET.rpos,p=g.p.root.position,ex=R.x-p.x,ez=R.z-p.z,d=Math.hypot(ex,ez);if(now-R.t>400)return;if(d>3){p.x=R.x;p.z=R.z;}else if(d>.15){const k=Math.min(1,dt*6);p.x+=ex*k;p.z+=ez*k;}}}
+window.netSmoothSnap=netSmoothSnap;
+{const _nr2=netOnRelay;netOnRelay=function(d){if(d&&d.k==="in"&&d.px!=null)NET.rpos={x:d.px,z:d.pz,t:performance.now()};return _nr2.apply(this,arguments);};}
+{const _fu2=fightUpdate;fightUpdate=function(dt){_fu2.apply(this,arguments);try{netSmoothTick(dt);}catch(e){}};}
 
 // ===== 8b. mirror matches: two players on the same fighter get two separate bodies (online both often keep the default one) =====
 const MIRROR={last:null};
